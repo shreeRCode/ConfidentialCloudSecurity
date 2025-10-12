@@ -2,15 +2,20 @@ import os
 from policy_engine import PolicyEngine
 from encryption import CryptoEngine
 from input_handler import get_user_input
+from utils import clear_screen, print_header
 
 def main():
-    # --- SETUP ---
+   # --- SETUP ---
+    # In a real app, MASTER_KEY would come from a secure source like Azure Key Vault.
     MASTER_KEY = os.urandom(32)
+
+    # Instantiate the core components
     crypto_engine = CryptoEngine(MASTER_KEY)
     policy_engine = PolicyEngine()
 
     # --- INTERACTIVE LOOP ---
     while True:
+        clear_screen()
         data_source, data, sensitivity = get_user_input()
 
         # Handle exit condition
@@ -20,10 +25,13 @@ def main():
 
         # Handle input errors (e.g., file not found)
         if data is None:
-            continue # Skip to the next loop iteration and ask for input again
+            input("\nPress Enter to continue...") # Wait for user to acknowledge error
+            continue # Skip to the next loop iteration
 
-        print("-" * 60)
-        print(f"Processing data from source: '{data_source}' with sensitivity: '{sensitivity}'")
+        print_header("Processing Request")
+        print(f"  Source: '{data_source}'")
+        print(f"  Sensitivity: '{sensitivity}'")
+        print(f"  Data Size: {len(data)} bytes")
 
         try:
             # 1. Policy Engine makes a decision
@@ -31,7 +39,7 @@ def main():
 
             # 2. Crypto Engine encrypts the data
             encrypted_blob = crypto_engine.encrypt(data, chosen_algorithm)
-            print(f"  -> Encryption successful.")
+            print(f"\n  -> Encryption successful.")
 
             # Save the encrypted content to a new file
             output_filename = f"encrypted_{data_source}"
@@ -41,7 +49,7 @@ def main():
 
             # 3. Crypto Engine decrypts for verification
             decrypted_data = crypto_engine.decrypt(encrypted_blob, chosen_algorithm)
-            print(f"  -> Decryption successful.")
+            print(f"\n  -> Decryption successful.")
 
             # 4. Verify integrity
             if data == decrypted_data:
@@ -55,8 +63,10 @@ def main():
                 print("  ->  FAILURE: Data mismatch after decryption!")
 
         except (ValueError, Exception) as e:
-            print(f"  ->  ERROR during processing: {e}")
-        print("-" * 60)
+            print(f"\n  ->  ERROR during processing: {e}")
+        
+        input("\nPress Enter to continue...")
+
 
 if __name__ == "__main__":
     main()
