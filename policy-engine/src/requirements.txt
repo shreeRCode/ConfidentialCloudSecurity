@@ -1,0 +1,4 @@
+cryptography
+azure-identity
+azure-keyvault-secrets
+azure-storage-blob
