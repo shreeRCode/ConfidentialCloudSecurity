@@ -26,17 +26,15 @@ def get_user_input():
         if file_path.lower() == 'exit':
             return None, None, None
         try:
-            # Read the file in binary mode ('rb')
             with open(file_path, 'rb') as f:
                 data_bytes = f.read()
-            data_source = os.path.basename(file_path) # Get just the filename
+            data_source = os.path.basename(file_path)
         except FileNotFoundError:
             print(f"  ->  ERROR: The file was not found at '{file_path}'")
             return "Error", None, None
         except Exception as e:
             print(f"  ->  ERROR: Could not read the file. Reason: {e}")
             return "Error", None, None
-
     else:
         print("  -> ERROR: Invalid choice. Please enter 'text' or 'file'.")
         return "Error", None, None

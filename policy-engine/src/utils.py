@@ -6,7 +6,6 @@ def clear_screen():
     if system_os == "Windows":
         os.system('cls')
     else:
-        # For MacOS and Linux
         os.system('clear')
 
 def print_header(title: str):

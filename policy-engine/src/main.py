@@ -1,32 +1,33 @@
-import os
+import sys
 from policy_engine import PolicyEngine
 from encryption import CryptoEngine
 from input_handler import get_user_input
 from utils import clear_screen, print_header
+from azure_integration import get_master_key_from_vault, upload_to_blob, download_from_blob
 
 def main():
-   # --- SETUP ---
-    # In a real app, MASTER_KEY would come from a secure source like Azure Key Vault.
-    MASTER_KEY = os.urandom(32)
+    print_header("Initializing Adaptive Framework")
+    
+    try:
+        MASTER_KEY = get_master_key_from_vault()
+    except Exception as e:
+        print(f"\nFATAL SETUP ERROR: Cannot proceed without Master Key. {e}")
+        sys.exit(1)
 
-    # Instantiate the core components
     crypto_engine = CryptoEngine(MASTER_KEY)
     policy_engine = PolicyEngine()
-
-    # --- INTERACTIVE LOOP ---
+    
     while True:
         clear_screen()
         data_source, data, sensitivity = get_user_input()
 
-        # Handle exit condition
         if data_source is None:
             print("Exiting application. Goodbye!")
             break
 
-        # Handle input errors (e.g., file not found)
         if data is None:
-            input("\nPress Enter to continue...") # Wait for user to acknowledge error
-            continue # Skip to the next loop iteration
+            input("\nPress Enter to continue...")
+            continue
 
         print_header("Processing Request")
         print(f"  Source: '{data_source}'")
@@ -34,39 +35,37 @@ def main():
         print(f"  Data Size: {len(data)} bytes")
 
         try:
-            # 1. Policy Engine makes a decision
             chosen_algorithm = policy_engine.select_algorithm(sensitivity)
-
-            # 2. Crypto Engine encrypts the data
             encrypted_blob = crypto_engine.encrypt(data, chosen_algorithm)
-            print(f"\n  -> Encryption successful.")
+            print(f"\n  -> Encryption successful (Ciphertext size: {len(encrypted_blob)} bytes).")
 
-            # Save the encrypted content to a new file
-            output_filename = f"encrypted_{data_source}"
-            with open(output_filename, 'wb') as f:
-                f.write(encrypted_blob)
-            print(f"  -> Encrypted content saved to: '{output_filename}'")
+            blob_name = f"encrypted-{data_source}-{chosen_algorithm.lower()}.bin"
+            upload_to_blob(blob_name, encrypted_blob)
 
-            # 3. Crypto Engine decrypts for verification
-            decrypted_data = crypto_engine.decrypt(encrypted_blob, chosen_algorithm)
+            print_header("Simulating Data Retrieval from Cloud")
+
+            retrieved_blob = download_from_blob(blob_name)
+            
+            if retrieved_blob != encrypted_blob:
+                raise Exception("Integrity check failed: Retrieved blob does not match uploaded blob.")
+            print(f"  -> Encrypted data retrieved successfully (size: {len(retrieved_blob)} bytes).")
+
+            decrypted_data = crypto_engine.decrypt(retrieved_blob, chosen_algorithm)
             print(f"\n  -> Decryption successful.")
 
-            # 4. Verify integrity
             if data == decrypted_data:
-                print("  ->  SUCCESS: Decrypted data matches the original content.")
-                # Save the decrypted content to another file for manual verification
-                decrypted_filename = f"decrypted_{data_source}"
+                print("  -> SUCCESS: Decrypted data matches the original content.")
+                decrypted_filename = f"local_decrypted_{data_source}"
                 with open(decrypted_filename, 'wb') as f:
                     f.write(decrypted_data)
                 print(f"  -> Decrypted content verified and saved to: '{decrypted_filename}'")
             else:
-                print("  ->  FAILURE: Data mismatch after decryption!")
+                print("  -> FAILURE: Data mismatch after decryption!")
 
-        except (ValueError, Exception) as e:
+        except Exception as e:
             print(f"\n  ->  ERROR during processing: {e}")
         
         input("\nPress Enter to continue...")
-
 
 if __name__ == "__main__":
     main()

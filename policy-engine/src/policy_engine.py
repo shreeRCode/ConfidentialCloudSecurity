@@ -10,7 +10,6 @@ class PolicyEngine:
         print(f"  -> Medium sensitivity maps to: {self._policy_map['medium']}")
         print(f"  -> Low sensitivity maps to: {self._policy_map['low']}")
 
-
     def select_algorithm(self, sensitivity: str) -> str:
         level = sensitivity.lower().strip()
         algorithm = self._policy_map.get(level)
