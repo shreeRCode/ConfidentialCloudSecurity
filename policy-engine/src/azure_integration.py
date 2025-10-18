@@ -1,8 +1,11 @@
 import os
 import base64
+from dotenv import load_dotenv
 from azure.identity import DefaultAzureCredential
 from azure.keyvault.secrets import SecretClient
 from azure.storage.blob import BlobClient
+
+load_dotenv()
 
 KEY_VAULT_URL = os.environ.get("AZURE_KEY_VAULT_URL")
 MASTER_KEY_SECRET_NAME = os.environ.get("MASTER_KEY_SECRET_NAME", "MasterEncryptionKey")
@@ -11,7 +14,7 @@ STORAGE_CONTAINER_NAME = os.environ.get("AZURE_STORAGE_CONTAINER_NAME", "encrypt
 
 def get_master_key_from_vault() -> bytes:
     if not KEY_VAULT_URL:
-        raise EnvironmentError("AZURE_KEY_VAULT_URL environment variable is not set.")
+        raise EnvironmentError("AZURE_KEY_VAULT_URL not found in environment or .env file.")
     
     try:
         credential = DefaultAzureCredential()
@@ -31,7 +34,7 @@ def get_master_key_from_vault() -> bytes:
 
 def upload_to_blob(blob_name: str, data: bytes):
     if not STORAGE_ACCOUNT_URL:
-        raise EnvironmentError("AZURE_STORAGE_ACCOUNT_URL environment variable is not set.")
+        raise EnvironmentError("AZURE_STORAGE_ACCOUNT_URL not found in environment or .env file.")
 
     try:
         blob_url = f"{STORAGE_ACCOUNT_URL}/{STORAGE_CONTAINER_NAME}/{blob_name}"
@@ -45,7 +48,7 @@ def upload_to_blob(blob_name: str, data: bytes):
 
 def download_from_blob(blob_name: str) -> bytes:
     if not STORAGE_ACCOUNT_URL:
-        raise EnvironmentError("AZURE_STORAGE_ACCOUNT_URL environment variable is not set.")
+        raise EnvironmentError("AZURE_STORAGE_ACCOUNT_URL not found in environment or .env file.")
 
     try:
         blob_url = f"{STORAGE_ACCOUNT_URL}/{STORAGE_CONTAINER_NAME}/{blob_name}"
