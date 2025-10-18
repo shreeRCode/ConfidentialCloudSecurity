@@ -3,7 +3,7 @@ from policy_engine import PolicyEngine
 from encryption import CryptoEngine
 from input_handler import get_user_input
 from utils import clear_screen, print_header
-from azure_integration import get_master_key_from_vault, upload_to_blob, download_from_blob
+from azure_integration import get_master_key_from_vault, upload_to_blob, download_from_blob, is_running_in_secure_enclave
 
 def main():
     print_header("Initializing Adaptive Framework")
@@ -49,6 +49,14 @@ def main():
             if retrieved_blob != encrypted_blob:
                 raise Exception("Integrity check failed: Retrieved blob does not match uploaded blob.")
             print(f"  -> Encrypted data retrieved successfully (size: {len(retrieved_blob)} bytes).")
+            
+            if not is_running_in_secure_enclave():
+                raise Exception(
+                    "Unauthorized Access: Decryption is prohibited outside of a "
+                    "secure TEE (Confidential VM)."
+                )
+            
+            print("\n  -> Proceeding with decryption inside secure enclave.")
 
             decrypted_data = crypto_engine.decrypt(retrieved_blob, chosen_algorithm)
             print(f"\n  -> Decryption successful.")

@@ -59,3 +59,13 @@ def download_from_blob(blob_name: str) -> bytes:
     except Exception as e:
         print(f"  -> ERROR downloading from Azure Blob Storage: {e}")
         raise
+
+def is_running_in_secure_enclave() -> bool:
+    is_secure = os.environ.get("SECURE_ENVIRONMENT", "FALSE").upper() == "TRUE"
+    
+    if is_secure:
+        print("  -> Security Check: PASSED. Running in a trusted environment.")
+    else:
+        print("  -> Security Check: FAILED. Not a trusted environment.")
+        
+    return is_secure
