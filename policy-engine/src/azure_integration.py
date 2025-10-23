@@ -13,10 +13,7 @@ KEY_VAULT_URL = os.environ.get("AZURE_KEY_VAULT_URL")
 MASTER_KEY_SECRET_NAME = os.environ.get("MASTER_KEY_SECRET_NAME", "MasterEncryptionKey")
 STORAGE_ACCOUNT_URL = os.environ.get("AZURE_STORAGE_ACCOUNT_URL")
 STORAGE_CONTAINER_NAME = os.environ.get("AZURE_STORAGE_CONTAINER_NAME", "encrypted-data")
-
-
-ATTESTATION_PROVIDER_URL = os.environ.get("ATTESTATION_PROVIDER_URL") 
-
+ATTESTATION_PROVIDER_URL = os.environ.get("ATTESTATION_PROVIDER_URL")
 
 def get_master_key_from_vault() -> bytes:
     if not KEY_VAULT_URL:
@@ -60,9 +57,7 @@ def download_from_blob(blob_name: str) -> bytes:
         print(f"  -> ERROR downloading from Azure Blob Storage: {e}")
         raise
 
-
 def get_azure_instance_metadata():
-    """Fetches instance metadata from the Azure IMDS service."""
     try:
         url = "http://169.254.169.254/metadata/instance?api-version=2021-02-01"
         headers = {'Metadata': 'true'}
@@ -73,11 +68,9 @@ def get_azure_instance_metadata():
         return {}
 
 def is_azure_confidential_vm():
-    """Detects if running on an actual Azure Confidential VM (DC-series)."""
     print("  -> Checking VM type for Confidential Compute capabilities...")
     metadata = get_azure_instance_metadata()
     vm_size = metadata.get('compute', {}).get('vmSize', '').lower()
-    
     if vm_size.startswith('standard_dc'):
         print(f"  -> VM Type: {vm_size}. Confidential VM detected.")
         return True
@@ -86,20 +79,16 @@ def is_azure_confidential_vm():
         return False
 
 def _get_attestation_report_from_vm():
-    
     print("  -> Retrieving TEE hardware report from guest OS...")
-    # This is a placeholder for the binary report data
-    # In a real implementation, you would use a subprocess call:
-    # import subprocess
-    # report_data = subprocess.check_output(["sevtool", "--get_report"])
-    # return report_data
-    return b"hardware-tee-report-data-placeholder"
+    # NOTE: This part requires specific implementation based on the CVM environment (e.g., AMD SEV-SNP/Intel TDX)
+    # and tools available in the guest OS (like sevtool or accessing /dev/sev).
+    # Returning a placeholder as the real implementation is hardware/OS dependent.
+    return b"actual-hardware-report-data"
 
 def perform_real_attestation() -> bool:
     if not ATTESTATION_PROVIDER_URL:
         print("  -> ERROR: ATTESTATION_PROVIDER_URL not set in .env file.")
         return False
-        
     try:
         print(f"  -> Contacting Azure Attestation Service at: {ATTESTATION_PROVIDER_URL}")
         credential = DefaultAzureCredential()
@@ -107,41 +96,26 @@ def perform_real_attestation() -> bool:
             endpoint=ATTESTATION_PROVIDER_URL,
             credential=credential
         )
-        
         report_data = _get_attestation_report_from_vm()
-        
         runtime_data = {"nonce": base64.b64encode(os.urandom(16)).decode()}
-        
         attestation_token = attestation_client.attest_sev_snp_vm(
             report_data,
             runtime_data=runtime_data
         )
-
         token_claims = attestation_token.get_body()
-        
         if token_claims.get("x-ms-compliance-status") == "azure-compliant-cvm":
             print("  -> Attestation PASSED: TEE is an Azure-compliant Confidential VM.")
             return True
         else:
             print("  -> Attestation FAILED: TEE is not compliant.")
             return False
-            
     except Exception as e:
         print(f"  -> Real attestation check FAILED with error: {e}")
         return False
 
 def is_running_in_secure_enclave() -> bool:
-    """
-    This function now ONLY performs a real attestation.
-    It will fail if not on a real Confidential VM.
-    """
-    
-    # Step 1: Check if this is a real CVM.
     if not is_azure_confidential_vm():
-        # If not a CVM, fail immediately. No fallback.
         print("  -> Security Check FAILED: Not a recognized Confidential VM.")
         return False
-        
-    # Step 2: It is a CVM, so perform real hardware attestation.
     print("  -> Attempting real hardware attestation...")
     return perform_real_attestation()
