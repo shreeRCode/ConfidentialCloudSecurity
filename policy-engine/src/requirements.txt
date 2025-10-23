@@ -3,3 +3,5 @@ azure-identity
 azure-keyvault-secrets
 azure-storage-blob
 python-dotenv
+azure-security-attestation
+requests
