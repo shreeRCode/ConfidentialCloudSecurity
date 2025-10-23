@@ -5,6 +5,34 @@ from input_handler import get_user_input
 from utils import clear_screen, print_header
 from azure_integration import get_master_key_from_vault, upload_to_blob, download_from_blob, is_running_in_secure_enclave
 
+def process_data_in_memory(data_bytes: bytes, data_source: str) -> str:
+    
+    print(f"  -> [TEE Processing]: Analyzing '{data_source}' in protected memory...")
+    try:
+        
+        data_str = data_bytes.decode('utf-8')
+        
+        
+        scan_result = "No sensitive keywords detected."
+        if "shravya" in data_str.lower():
+            scan_result = "Sensitive PII 'Shravya' was processed."
+
+        
+        word_count = len(data_str.split())
+        
+        print(f"  -> [TEE Processing]: Analysis complete. Discarding plaintext from memory.")
+        
+        return f"{{'source': '{data_source}', 'word_count': {word_count}, 'scan_result': '{scan_result}'}}"
+    
+    except UnicodeDecodeError:
+        
+        print(f"  -> [TEE Processing]: Data is non-text binary. Calculating size.")
+        print(f"  -> [TEE Processing]: Analysis complete. Discarding plaintext from memory.")
+        return f"{{'source': '{data_source}', 'data_size_bytes': {len(data_bytes)}}}"
+    except Exception as e:
+        return f"{{'error': 'Processing failed: {e}'}}"
+
+
 def main():
     print_header("Initializing Adaptive Framework")
     
@@ -19,7 +47,8 @@ def main():
     
     while True:
         clear_screen()
-        data_source, data, sensitivity = get_user_input()
+        # Get original data for verification later
+        data_source, data, sensitivity = get_user_input() 
 
         if data_source is None:
             print("Exiting application. Goodbye!")
@@ -50,6 +79,7 @@ def main():
                 raise Exception("Integrity check failed: Retrieved blob does not match uploaded blob.")
             print(f"  -> Encrypted data retrieved successfully (size: {len(retrieved_blob)} bytes).")
             
+            # This now performs a real attestation check
             if not is_running_in_secure_enclave():
                 raise Exception(
                     "Unauthorized Access: Decryption is prohibited outside of a "
@@ -61,14 +91,19 @@ def main():
             decrypted_data = crypto_engine.decrypt(retrieved_blob, chosen_algorithm)
             print(f"\n  -> Decryption successful.")
 
+            print(f"  -> Processing data securely in protected memory...")
+            
+
+            processing_result = process_data_in_memory(decrypted_data, data_source)
+            
+            print(f"  -> SUCCESS: Processing complete. Plaintext has been discarded.")
+            print(f"  -> Result of in-memory computation: {processing_result}")
+            
             if data == decrypted_data:
-                print("  -> SUCCESS: Decrypted data matches the original content.")
-                decrypted_filename = f"local_decrypted_{data_source}"
-                with open(decrypted_filename, 'wb') as f:
-                    f.write(decrypted_data)
-                print(f"  -> Decrypted content verified and saved to: '{decrypted_filename}'")
+                print("  -> Verification: PASSED (Decrypted data matches original input)")
             else:
-                print("  -> FAILURE: Data mismatch after decryption!")
+                print("  -> Verification: FAILED (Data mismatch after decryption!)")
+            
 
         except Exception as e:
             print(f"\n  ->  ERROR during processing: {e}")

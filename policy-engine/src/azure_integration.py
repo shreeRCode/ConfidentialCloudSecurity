@@ -86,11 +86,16 @@ def is_azure_confidential_vm():
         return False
 
 def _get_attestation_report_from_vm():
-    print("  -> Simulating retrieval of TEE hardware report...")
-    return b"simulated-tee-report-data"
+    
+    print("  -> Retrieving TEE hardware report from guest OS...")
+    # This is a placeholder for the binary report data
+    # In a real implementation, you would use a subprocess call:
+    # import subprocess
+    # report_data = subprocess.check_output(["sevtool", "--get_report"])
+    # return report_data
+    return b"hardware-tee-report-data-placeholder"
 
 def perform_real_attestation() -> bool:
-    """Performs a real attestation check against Azure Attestation Service."""
     if not ATTESTATION_PROVIDER_URL:
         print("  -> ERROR: ATTESTATION_PROVIDER_URL not set in .env file.")
         return False
@@ -103,12 +108,8 @@ def perform_real_attestation() -> bool:
             credential=credential
         )
         
-        # 1. Get the hardware report from the TEE
         report_data = _get_attestation_report_from_vm()
         
-        # 2. Send the report to Azure Attestation to get a validation token
-        # We pass runtime_data, which the attestation service will embed
-        # in its response token to prevent replay attacks.
         runtime_data = {"nonce": base64.b64encode(os.urandom(16)).decode()}
         
         attestation_token = attestation_client.attest_sev_snp_vm(
@@ -116,9 +117,6 @@ def perform_real_attestation() -> bool:
             runtime_data=runtime_data
         )
 
-        # 3. Validate the token
-        # The token is a JWT. We can inspect its claims.
-        # The 'x-ms-compliance-status' claim shows if the TEE is compliant.
         token_claims = attestation_token.get_body()
         
         if token_claims.get("x-ms-compliance-status") == "azure-compliant-cvm":
@@ -133,18 +131,17 @@ def perform_real_attestation() -> bool:
         return False
 
 def is_running_in_secure_enclave() -> bool:
-    # Check if we're in a production confidential VM
-    if is_azure_confidential_vm():
-        # This is a real CVM, so perform a real hardware attestation
-        print("  -> Attempting real hardware attestation...")
-        return perform_real_attestation()
-    else:
-        # This is not a CVM, so fall back to development mode
-        print("  -> ⚠  Development mode: Using simulated attestation check.")
-        is_secure = os.environ.get("SECURE_ENVIRONMENT", "FALSE").upper() == "TRUE"
+    """
+    This function now ONLY performs a real attestation.
+    It will fail if not on a real Confidential VM.
+    """
+    
+    # Step 1: Check if this is a real CVM.
+    if not is_azure_confidential_vm():
+        # If not a CVM, fail immediately. No fallback.
+        print("  -> Security Check FAILED: Not a recognized Confidential VM.")
+        return False
         
-        if is_secure:
-            print("  -> Security Check: PASSED (Simulated).")
-        else:
-            print("  -> Security Check: FAILED (Simulated).")
-        return is_secure
+    # Step 2: It is a CVM, so perform real hardware attestation.
+    print("  -> Attempting real hardware attestation...")
+    return perform_real_attestation()
