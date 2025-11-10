@@ -9,9 +9,12 @@ def process_data_in_memory(data_bytes: bytes, data_source: str) -> str:
     print(f"  -> [TEE Processing]: Analyzing '{data_source}' in protected memory...")
     try:
         data_str = data_bytes.decode('utf-8')
-        scan_result = "No sensitive keywords detected."
-        if "shravya" in data_str.lower():
-            scan_result = "Sensitive PII 'Shravya' was processed."
+        sensitive_keywords = ["password", "email", "ssn", "creditcard", "confidential", "secret"]
+        detected = [kw for kw in sensitive_keywords if kw in data_str.lower()]
+        scan_result = (
+            f"Sensitive keywords detected: {', '.join(detected)}"
+            if detected else "No sensitive keywords detected."
+        )
         word_count = len(data_str.split())
         print(f"  -> [TEE Processing]: Analysis complete. Discarding plaintext from memory.")
         return f"{{'source': '{data_source}', 'word_count': {word_count}, 'scan_result': '{scan_result}'}}"
@@ -79,7 +82,6 @@ def main():
             print(f"  -> SUCCESS: Processing complete. Plaintext has been discarded.")
             print(f"  -> Result of in-memory computation: {processing_result}")
 
-            # Verification step retained for integrity check
             if data == decrypted_data:
                 print("  -> Verification: PASSED (Decrypted data matches original input)")
             else:
